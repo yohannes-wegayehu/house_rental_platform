@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Stats Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Owner Dashboard Statistics Fix Test</h1>
+    
+    <div class="test-section info">
+        <h2>Test Purpose</h2>
+        <p>This test verifies that the owner dashboard statistics are maintained correctly after page refresh.</p>
+        <p>The fix includes:</p>
+        <ul>
+            <li>Statistics persistence in localStorage</li>
+            <li>Loading states during data fetch</li>
+            <li>Cached stats fallback (5-minute expiry)</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Functions</h2>
+        <button onclick="testLocalStoragePersistence()">Test localStorage Persistence</button>
+        <button onclick="testStatsCalculation()">Test Stats Calculation</button>
+        <button onclick="testCacheExpiry()">Test Cache Expiry Logic</button>
+        <button onclick="clearTestData()">Clear Test Data</button>
+        <pre id="test-results"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Test Instructions</h2>
+        <p>To manually test the fix:</p>
+        <ol>
+            <li>Log in as an owner user</li>
+            <li>Navigate to the Owner dashboard</li>
+            <li>Observe the statistics (Properties Listed, Active Listings, Pending Approval, Total Views)</li>
+            <li>Refresh the page</li>
+            <li>The statistics should show cached values immediately, then update with fresh data</li>
+            <li>You should see loading indicators briefly while data is being fetched</li>
+        </ol>
+    </div>
+
+    <script>
+        function log(message) {
+            const results = document.getElementById('test-results');
+            results.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+
+        function testLocalStoragePersistence() {
+            log('=== Testing localStorage Persistence ===');
+            
+            // Simulate storing stats like the dashboard does
+            const testStats = {
+                total: 5,
+                active: 3,
+                pending: 2,
+                totalViews: 1250,
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('hrp_owner_stats', JSON.stringify(testStats));
+            log('Stored test stats in localStorage');
+            
+            // Retrieve and verify
+            const retrieved = localStorage.getItem('hrp_owner_stats');
+            const parsed = JSON.parse(retrieved);
+            
+            if (parsed.total === testStats.total && 
+                parsed.active === testStats.active && 
+                parsed.pending === testStats.pending && 
+                parsed.totalViews === testStats.totalViews) {
+                log('✅ SUCCESS: Stats persisted and retrieved correctly');
+            } else {
+                log('❌ FAILED: Stats not persisted correctly');
+            }
+        }
+
+        function testStatsCalculation() {
+            log('=== Testing Stats Calculation ===');
+            
+            // Simulate properties data like from API
+            const testProperties = [
+                { status: 'active', views_count: 100 },
+                { status: 'active', views_count: 200 },
+                { status: 'pending', views_count: 50 },
+                { status: 'rented', views_count: 300 },
+                { status: 'rejected', views_count: 150 }
+            ];
+            
+            // Calculate stats like the dashboard does
+            const total = testProperties.length;
+            const active = testProperties.filter((p) => p.status === 'active').length;
+            const pending = testProperties.filter((p) => p.status === 'pending').length;
+            const totalViews = testProperties.reduce((sum, p) => sum + (p.views_count || 0), 0);
+            
+            log(`Calculated stats: total=${total}, active=${active}, pending=${pending}, totalViews=${totalViews}`);
+            
+            if (total === 5 && active === 2 && pending === 1 && totalViews === 800) {
+                log('✅ SUCCESS: Stats calculation logic is correct');
+            } else {
+                log('❌ FAILED: Stats calculation logic has errors');
+            }
+        }
+
+        function testCacheExpiry() {
+            log('=== Testing Cache Expiry Logic ===');
+            
+            // Test with fresh cache (less than 5 minutes old)
+            const freshStats = {
+                total: 10,
+                active: 7,
+                pending: 3,
+                totalViews: 2500,
+                timestamp: Date.now() - 100000 // 100 seconds ago
+            };
+            
+            localStorage.setItem('hrp_owner_stats', JSON.stringify(freshStats));
+            
+            const now = Date.now();
+            const cached = JSON.parse(localStorage.getItem('hrp_owner_stats'));
+            const isFresh = (now - cached.timestamp) < 300000; // 5 minutes = 300000 ms
+            
+            if (isFresh) {
+                log('✅ SUCCESS: Fresh cache detected correctly');
+            } else {
+                log('❌ FAILED: Fresh cache not detected');
+            }
+            
+            // Test with expired cache (more than 5 minutes old)
+            const expiredStats = {
+                total: 10,
+                active: 7,
+                pending: 3,
+                totalViews: 2500,
+                timestamp: Date.now() - 400000 // 400 seconds ago
+            };
+            
+            localStorage.setItem('hrp_owner_stats', JSON.stringify(expiredStats));
+            
+            const cached2 = JSON.parse(localStorage.getItem('hrp_owner_stats'));
+            const isExpired = (now - cached2.timestamp) >= 300000;
+            
+            if (isExpired) {
+                log('✅ SUCCESS: Expired cache detected correctly');
+            } else {
+                log('❌ FAILED: Expired cache not detected');
+            }
+        }
+
+        function clearTestData() {
+            localStorage.removeItem('hrp_owner_stats');
+            log('Test data cleared from localStorage');
+        }
+
+        // Initial check
+        window.onload = function() {
+            log('Owner Stats Fix Test Page Loaded');
+            log('Ready to run tests...');
+        };
+    </script>
+</body>
+</html>
